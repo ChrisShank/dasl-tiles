@@ -1,4 +1,3 @@
-
 /*
 ████████╗██╗██╗     ███████╗███████╗
 ╚══██╔══╝██║██║     ██╔════╝██╔════╝
@@ -28,31 +27,31 @@ The tile-loading architecture has three levels that all communicate together:
   requests up, which the shuttle then hands over to the mothership.
 */
 
-import { el } from "./lib/el.js";
-
+import { el } from './lib/el.js';
+import { ReactiveElement } from '@lit/reactive-element';
 const TILES_PFX = 'tiles-';
 const SHUTTLE_PFX = 'tiles-shuttle-';
-const SND_SHUTTLE_LOAD = `${SHUTTLE_PFX}load`;        // tell worker to roll
-const RCV_SHUTTLE_READY = `${SHUTTLE_PFX}ready`;      // worker ready
-const SND_SET_TITLE = `${SHUTTLE_PFX}set-title`;      // set the title
-const SND_SET_ICON = `${SHUTTLE_PFX}set-icon`;        // set the icon
+const SND_SHUTTLE_LOAD = `${SHUTTLE_PFX}load`; // tell worker to roll
+const RCV_SHUTTLE_READY = `${SHUTTLE_PFX}ready`; // worker ready
+const SND_SET_TITLE = `${SHUTTLE_PFX}set-title`; // set the title
+const SND_SET_ICON = `${SHUTTLE_PFX}set-icon`; // set the icon
 const WORKER_PFX = 'tiles-worker-';
-const SND_WORKER_LOAD = `${WORKER_PFX}load`;          // tell worker to roll
-const RCV_WORKER_READY = `${WORKER_PFX}ready`;        // worker ready
-const RCV_WORKER_REQUEST = `${WORKER_PFX}request`;    // worker requested something
-const SND_WORKER_RESPONSE = `${WORKER_PFX}response`;  // respond to a worker
-const TILES_WARNING = `${TILES_PFX}warn`;             // worker warnings
-const TILES_ERROR = `${TILES_PFX}error`;              // shuttle errors
+const SND_WORKER_LOAD = `${WORKER_PFX}load`; // tell worker to roll
+const RCV_WORKER_READY = `${WORKER_PFX}ready`; // worker ready
+const RCV_WORKER_REQUEST = `${WORKER_PFX}request`; // worker requested something
+const SND_WORKER_RESPONSE = `${WORKER_PFX}response`; // respond to a worker
+const TILES_WARNING = `${TILES_PFX}warn`; // worker warnings
+const TILES_ERROR = `${TILES_PFX}error`; // shuttle errors
 
 export class TileMothership {
   #loaders = [];
   #conf = {};
   #id2shuttle = new Map();
   #id2tile = new Map();
-  constructor (conf) {
+  constructor(conf) {
     this.#conf = conf;
   }
-  init () {
+  init() {
     window.addEventListener('message', async (ev) => {
       const { action } = ev.data || {};
       if (action === TILES_WARNING) {
@@ -62,18 +61,15 @@ export class TileMothership {
       if (action === TILES_ERROR) {
         const { msg, id } = ev.data;
         console.error(`[S:${id}]`, ...msg);
-      }
-      else if (action === RCV_SHUTTLE_READY) {
+      } else if (action === RCV_SHUTTLE_READY) {
         const { id } = ev.data;
         this.sendToShuttle(id, SND_WORKER_LOAD, { id });
-      }
-      else if (action === RCV_WORKER_READY) {
+      } else if (action === RCV_WORKER_READY) {
         const { id } = ev.data;
         const tile = this.#id2tile.get(id);
         if (!tile) throw new Error(`No tile shuttle with ID ${id}`);
         tile.dispatchEvent(new Event('load'));
-      }
-      else if (action === RCV_WORKER_REQUEST) {
+      } else if (action === RCV_WORKER_REQUEST) {
         const { type, id, payload } = ev.data;
         if (type === 'resolve-path') {
           const { path, requestId } = payload;
@@ -85,35 +81,35 @@ export class TileMothership {
       }
     });
   }
-  sendToShuttle (id, action, payload) {
+  sendToShuttle(id, action, payload) {
     const ifr = this.#id2shuttle.get(id);
     if (!ifr) return console.error(`No shuttle for ID ${id}`);
     ifr.contentWindow.postMessage({ id, action, payload }, '*');
   }
-  registerShuttleFrame (ifr, tile) {
+  registerShuttleFrame(ifr, tile) {
     const id = crypto.randomUUID(); // we might want to make that pluggable
     this.#id2shuttle.set(id, ifr);
     this.#id2tile.set(id, tile);
     return id;
   }
-  startShuttle (id) {
+  startShuttle(id) {
     this.sendToShuttle(id, SND_SHUTTLE_LOAD, { id });
   }
   // Adds a loader that will handle matching requests to load a tile.
   // - `loader` is an object that knows how to load a tile for a specific scheme
   //    (and types)
-  addLoader (loader) {
+  addLoader(loader) {
     this.#loaders.push(loader);
   }
   // Remove using same reference.
-  removeLoader (loader) {
-    this.#loaders = this.#loaders.filter(ldr => ldr !== loader);
+  removeLoader(loader) {
+    this.#loaders = this.#loaders.filter((ldr) => ldr !== loader);
   }
-  getLoadSource () {
+  getLoadSource() {
     return `https://${this.#conf?.loadDomain || 'load.webtil.es'}/.well-known/web-tiles/`;
   }
   // Load a tile.
-  async loadTile (url) {
+  async loadTile(url) {
     let tile = false;
     for (const ldr of this.#loaders) {
       tile = await ldr.load(url, this);
@@ -129,7 +125,7 @@ export class Tile extends EventTarget {
   #manifest;
   #pathLoader;
   #shuttleId;
-  constructor (mothership, url, manifest, pathLoader) {
+  constructor(mothership, url, manifest, pathLoader) {
     super();
     this.#mothership = mothership;
     this.#url = url;
@@ -149,27 +145,27 @@ export class Tile extends EventTarget {
       }
     });
   }
-  get url () {
+  get url() {
     return this.#url;
   }
-  get manifest () {
+  get manifest() {
     return this.#manifest;
   }
-  async resolvePath (path) {
+  async resolvePath(path) {
     const u = new URL(`fake:${path}`);
     return this.#pathLoader.resolvePath(u.pathname);
   }
-  async renderCard (options) {
-    const card = el('div', { style: {
-      border: '1px solid lightgrey',
-      'border-radius': '3px',
-      cursor: 'pointer',
-    }});
+  async renderCard(options) {
+    const card = el('div', {
+      style: {
+        border: '1px solid lightgrey',
+        'border-radius': '3px',
+        cursor: 'pointer',
+      },
+    });
     card.addEventListener('click', async () => {
       const tileRenderer = await this.renderContent(
-        options?.contentHeight ||
-        this.#manifest?.sizing?.height ||
-        Math.max(card.offsetHeight, 300)
+        options?.contentHeight || this.#manifest?.sizing?.height || Math.max(card.offsetHeight, 300),
       );
       card.replaceWith(tileRenderer);
     });
@@ -179,19 +175,33 @@ export class Tile extends EventTarget {
       if (res.ok) {
         const blob = new Blob([res.body], { type: res.headers?.['content-type'] });
         const url = URL.createObjectURL(blob);
-        el('div', { style: {
-          'background-image': `url(${url})`,
-          'background-size': 'cover',
-          'background-position': '50%',
-          'aspect-ratio': '16/9',
-        }}, [], card);
+        el(
+          'div',
+          {
+            style: {
+              'background-image': `url(${url})`,
+              'background-size': 'cover',
+              'background-position': '50%',
+              'aspect-ratio': '16/9',
+            },
+          },
+          [],
+          card,
+        );
       }
     }
-    const title = el('div', { style: {
-      padding: '0.5rem 1rem',
-      display: 'flex',
-      'align-items': 'center',
-    }}, [], card);
+    const title = el(
+      'div',
+      {
+        style: {
+          padding: '0.5rem 1rem',
+          display: 'flex',
+          'align-items': 'center',
+        },
+      },
+      [],
+      card,
+    );
     // XXX we always take the first, we could be smarter with sizes
     if (this.#manifest?.icons?.[0]?.src) {
       const res = await this.resolvePath(this.#manifest.icons[0].src);
@@ -203,18 +213,18 @@ export class Tile extends EventTarget {
     }
     el('span', { style: { 'font-weight': 'bold' } }, [this.#manifest.name || 'Untitled Tile'], title);
     if (this.#manifest.description) {
-      el('p', { style: { 'margin': '0.5rem 1rem 1rem 1rem' } }, [this.#manifest.description], card);
+      el('p', { style: { margin: '0.5rem 1rem 1rem 1rem' } }, [this.#manifest.description], card);
     }
     return card;
   }
-  getLoadSource () {
+  getLoadSource() {
     return this.#mothership.getLoadSource();
   }
-  attachIframe (ifr) {
+  attachIframe(ifr) {
     this.#shuttleId = this.#mothership.registerShuttleFrame(ifr, this);
     ifr.addEventListener('load', () => this.#mothership.startShuttle(this.#shuttleId));
   }
-  renderContent (height = 300) {
+  renderContent(height = 300) {
     const ifr = el('iframe', {
       src: this.#mothership.getLoadSource(),
       style: {
@@ -222,9 +232,169 @@ export class Tile extends EventTarget {
         width: '100%',
         height: `${height}px`,
         border: 'none',
-      }
+      },
     });
     this.attachIframe(ifr);
     return ifr;
+  }
+}
+
+export class TileLoadEvent extends Event {
+  constructor() {
+    super('tile-load');
+  }
+}
+
+export class TileTitleChangeEvent extends Event {
+  #title;
+
+  get title() {
+    return this.#title;
+  }
+
+  constructor(title) {
+    super('tile-title-change');
+    this.#title = title;
+  }
+}
+
+// TODO: render to card
+export class TileFrame extends ReactiveElement {
+  static tagName = 'tile-frame';
+
+  static properties = {
+    src: { type: String, reflect: true },
+  };
+
+  static loadDomain = 'load.webtil.es';
+
+  static define() {
+    if (customElements.get(this.tagName)) return;
+
+    customElements.define(this.tagName, this);
+  }
+
+  static #loaders = [];
+
+  static addLoader(loader) {
+    this.loaders.push(loader);
+  }
+
+  static removeLoader(loader) {
+    this.loaders = this.loaders.filter((ldr) => ldr !== loader);
+  }
+
+  static async loadTile(src) {
+    for (const ldr of this.#loaders) {
+      const tileData = await ldr.load(src);
+      if (tileData !== undefined) return tileData;
+    }
+    return {};
+  }
+
+  #iframe = el('iframe', {
+    style: {
+      display: 'block',
+      width: '100%',
+      border: 'none',
+    },
+  });
+
+  #manifest;
+  #pathLoader;
+  #uuid = crypto.randomUUID();
+
+  get loadSource() {
+    return `https://${TileFrame.loadDomain}/.well-known/web-tiles/`;
+  }
+
+  constructor() {
+    super();
+
+    this.src = '';
+  }
+
+  createRenderRoot() {
+    const root = super.createRenderRoot();
+
+    return root;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.#iframe.addEventListener('load', this.#onIframeLoad);
+    window.addEventListener('message', this.#onMessage);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.#iframe.removeEventListener('load', this.#onIframeLoad);
+    window.removeEventListener('message', this.#onMessage);
+  }
+
+  update(changedProperties) {
+    super.update(changedProperties);
+
+    if (changedProperties.has('src')) {
+      const tile = TileFrame.loadTile(this.src);
+
+      if (tile !== undefined) {
+        this.#manifest = tile.manifest;
+        this.#pathLoader = tile.pathLoader;
+        this.#iframe.src = this.loadSource;
+      }
+    }
+  }
+
+  resolvePath(path) {
+    if (this.#pathLoader === undefined) throw new Error('Tile not loaded');
+
+    const u = new URL(`fake:${path}`);
+    return this.#pathLoader.resolvePath(u.pathname);
+  }
+
+  #onIframeLoad = () => {
+    this.sendToShuttle(SND_SHUTTLE_LOAD, { id: this.#uuid });
+  };
+
+  #onMessage = async (ev) => {
+    const { action, msg, id } = ev.data || {};
+
+    // TODO: check that iframe is the same as well?
+    if (id !== this.#uuid) return;
+
+    if (action === TILES_WARNING) {
+      console.warn(`[W:${id}]`, ...msg);
+    }
+    if (action === TILES_ERROR) {
+      console.error(`[S:${id}]`, ...msg);
+    } else if (action === RCV_SHUTTLE_READY) {
+      this.#sendToShuttle(SND_WORKER_LOAD, { id });
+    } else if (action === RCV_WORKER_READY) {
+      this.dispatchEvent(new TileLoadEvent());
+
+      if (this.#manifest?.name) {
+        const title = this.#manifest?.name;
+        this.#sendToShuttle(SND_SET_TITLE, { title });
+        this.dispatchEvent(new TileTitleChangeEvent(title));
+      }
+      const icon = this.#manifest?.icons?.[0]?.src;
+      if (icon) {
+        this.#sendToShuttle(SND_SET_ICON, { path: icon });
+      }
+    } else if (action === RCV_WORKER_REQUEST) {
+      const { type, payload } = ev.data;
+
+      if (type === 'resolve-path') {
+        const { path, requestId } = payload;
+        const { status, headers, body } = await this.resolvePath(path);
+        this.#sendToShuttle(SND_WORKER_RESPONSE, { requestId, response: { status, headers, body } });
+      }
+    }
+  };
+
+  #sendToShuttle(action, payload) {
+    // TODO: double check we can hardcode #uuid
+    this.#iframe.contentWindow.postMessage({ id: this.#uuid, action, payload }, '*');
   }
 }
